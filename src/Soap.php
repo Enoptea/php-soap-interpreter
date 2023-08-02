@@ -56,13 +56,37 @@ class Soap extends \SoapClient
     public function response($response, $function_name, &$output_headers)
     {
         $this->soapResponse = $response;
+
         try {
             $response = $this->__soapCall($function_name, [], null, null, $output_headers);
         } catch (\SoapFault $fault) {
+            $xml = \XMLReader::XML($this->soapResponse);
+            $message = null;
+            $code = null;
+
+            while ($xml->read() && 'detail' !== $xml->name);
+
+            while ($xml->read()) {
+                if ('resultat' === $xml->name) {
+                    $code = $xml->getAttribute('code');
+                }
+
+                if ('#text' === $xml->name) {
+                    $message = $xml->value;
+                }
+            }
+
             $this->soapResponse = null;
-            throw $fault;
+
+            if (null === $message && null === $code) {
+                throw $fault;
+            }
+
+            throw new SoapEnedisException($message, $code);
         }
+
         $this->soapResponse = null;
+
         return $response;
     }
 }
